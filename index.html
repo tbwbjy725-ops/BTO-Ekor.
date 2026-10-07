@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOT Ekor</title>
+<style>
+:root {
+  --bg: #1e1e2e; --bg-2: #181825; --bg-3: #313244; --card: #24243a;
+  --text: #cdd6f4; --text-dim: #9399b2; --accent: #89b4fa;
+  --green: #a6e3a1; --red: #f38ba8; --yellow: #f9e2af;
+  --border: #45475a; --shadow: 0 4px 20px rgba(0,0,0,.4);
+  --radius: 14px; --font: 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+[data-theme="white"] {
+  --bg: #f5f5f7; --bg-2: #ffffff; --bg-3: #e8e8ee; --card: #ffffff;
+  --text: #1e1e2e; --text-dim: #6c6f85; --accent: #1e66f5;
+  --green: #40a02b; --red: #d20f39; --yellow: #df8e1d;
+  --border: #dce0e8; --shadow: 0 4px 20px rgba(0,0,0,.08);
+}
+[data-theme="colorblind"] {
+  --bg: #1a1a1a; --bg-2: #222222; --bg-3: #333333; --card: #2a2a2a;
+  --text: #ffffff; --text-dim: #b0b0b0; --accent: #0072b2;
+  --green: #009e73; --red: #d55e00; --yellow: #f0e442; --border: #444444;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--font); background: var(--bg); color: var(--text);
+  min-height: 100vh; overflow-x: hidden;
+  transition: background .3s, color .3s;
+}
+#screen-lock {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg); z-index: 1000; padding: 24px;
+}
+.lock-icon { font-size: 64px; margin-bottom: 20px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.lock-icon.error { animation: shake 0.4s; }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+.lock-title {
+  font-size: 17px; font-weight: 600; text-align: center;
+  margin-bottom: 24px; color: var(--text); max-width: 340px;
+  line-height: 1.6; transition: all .3s;
+}
+.lock-title.error {
+  color: var(--red); font-size: 14px; padding: 12px 16px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid var(--red); border-radius: var(--radius);
+}
+.lock-input {
+  width: 100%; max-width: 320px; padding: 14px 18px;
+  font-size: 16px; background: var(--bg-3);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  color: var(--text); text-align: center; outline: none;
+  transition: border-color .2s; font-family: inherit;
+}
+.lock-input:focus { border-color: var(--accent); }
+.lock-actions { display: flex; gap: 12px; margin-top: 22px; width: 100%; max-width: 340px; }
+.btn {
+  flex: 1; padding: 12px 16px; font-size: 15px; font-weight: 600;
+  border: none; border-radius: var(--radius); cursor: pointer;
+  transition: transform .15s, opacity .2s; font-family: inherit;
+}
+.btn:active { transform: scale(.96); }
+.btn-primary { background: var(--accent); color: #11111b; }
+.btn-danger { background: var(--red); color: #11111b; }
+.btn-green { background: var(--green); color: #11111b; }
+.btn-ghost { background: var(--bg-3); color: var(--text); }
+#welcome-modal {
+  position: fixed; inset: 0; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,.6); z-index: 900; padding: 20px;
+}
+#welcome-modal.show { display: flex; }
+.welcome-box {
+  background: var(--card); border-radius: 20px;
+  padding: 32px 24px; max-width: 380px; width: 100%;
+  text-align: center; box-shadow: var(--shadow);
+  border: 1px solid var(--border); animation: slideUp .4s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.welcome-header {
+  font-size: 13px; color: var(--text-dim);
+  letter-spacing: 2px; margin-bottom: 16px; text-transform: uppercase;
+}
+.welcome-emoji { font-size: 56px; margin-bottom: 12px; }
+.welcome-text { font-size: 17px; line-height: 1.7; margin-bottom: 24px; }
+.welcome-btn {
+  background: var(--green); color: #11111b; padding: 12px 40px;
+  font-size: 16px; font-weight: 700; border: none;
+  border-radius: var(--radius); cursor: pointer; font-family: inherit;
+}
+#app { display: none; min-height: 100vh; }
+#app.show { display: block; }
+.topbar {
+  position: sticky; top: 0; background: var(--bg-2);
+  padding: 14px 18px; display: flex;
+  align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); z-index: 100;
+}
+.app-name {
+  font-size: 20px; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; letter-spacing: 1px;
+}
+.icon-btn {
+  background: var(--bg-3); border: none;
+  width: 42px; height: 42px; border-radius: 12px;
+  font-size: 20px; cursor: pointer; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, transform .15s;
+}
+.icon-btn:hover { background: var(--border); }
+.icon-btn:active { transform: scale(.92); }
+.gear-btn { animation: rotateOnIdle 8s linear infinite; }
+@keyframes rotateOnIdle { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.gear-btn:hover { animation-play-state: paused; }
+.main-cards {
+  padding: 20px; display: flex; flex-direction: column;
+  gap: 18px; max-width: 500px; margin: 0 auto;
+}
+.platform-card {
+  background: var(--card); border-radius: 18px;
+  padding: 34px 20px; cursor: pointer;
+  border: 2px solid var(--border);
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 10px;
+  position: relative; overflow: hidden;
+}
+.platform-card::before {
+  content: ''; position: absolute; inset: 0;
+  opacity: 0.08; transition: opacity .3s; pointer-events: none;
+}
+#card-tiktok::before { background: radial-gradient(circle at top right, #25f4ee, transparent 70%); }
+.platform-card:hover {
+  transform: translateY(-4px); border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+.platform-card:hover::before { opacity: 0.18; }
+.platform-card:active { transform: translateY(-1px) scale(.99); }
+.platform-icon { font-size: 60px; }
+.platform-name { font-size: 22px; font-weight: 700; }
+.platform-note { font-size: 11px; color: var(--text-dim); }
+
+.scan-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  z-index: 250; display: none; flex-direction: column;
+  overflow-y: auto;
+}
+.scan-screen.show { display: flex; }
+.scan-header {
+  background: var(--bg-2); padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.scan-title { font-size: 17px; font-weight: 700; flex: 1; }
+.scan-body {
+  padding: 20px; max-width: 520px; margin: 0 auto; width: 100%;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.scan-step-label {
+  font-size: 14px; font-weight: 600; color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.scan-options {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.scan-option {
+  padding: 16px 18px; background: var(--card);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: all .2s; font-family: inherit;
+  text-align: right;
+}
+.scan-option:hover { background: var(--bg-3); }
+.scan-option.active {
+  border-color: var(--accent);
+  background: var(--bg-3);
+}
+.scan-input {
+  padding: 14px 18px; font-size: 15px;
+  background: var(--bg-3); border: 2px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  outline: none; font-family: inherit; width: 100%;
+}
+.scan-input:focus { border-color: var(--accent); }
+.scan-checkbox {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; background: var(--card);
+  border: 2px solid var(--border); border-radius: var(--radius);
+  cursor: pointer; font-size: 15px;
+}
+.scan-checkbox input {
+  width: 22px; height: 22px; accent-color: var(--accent);
+  cursor: pointer;
+}
+.scan-actions { display: flex; gap: 10px; margin-top: 10px; }
+.scan-actions .btn { flex: 1; }
+
+.monitor-stats {
+  display: flex; gap: 10px; justify-content: space-between;
+}
+.stat-box {
+  flex: 1; background: var(--card);
+  padding: 14px; border-radius: var(--radius);
+  border: 1px solid var(--border); text-align: center;
+}
+.stat-value {
+  font-size: 22px; font-weight: 800; color: var(--accent);
+  font-family: monospace;
+}
+.stat-label {
+  font-size: 11px; color: var(--text-dim); margin-top: 4px;
+}
+.eta-box {
+  text-align: center; padding: 12px;
+  background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 14px; color: var(--yellow); font-weight: 600;
+}
+.results-title {
+  font-size: 14px; font-weight: 700;
+  color: var(--green); margin-top: 8px;
+}
+#results-list {
+  min-height: 200px; max-height: 340px; overflow-y: auto;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px;
+  font-family: 'Consolas', monospace; font-size: 14px;
+}
+.result-item {
+  padding: 8px 12px; margin-bottom: 6px;
+  background: rgba(166, 227, 161, 0.1);
+  border-right: 3px solid var(--green);
+  border-radius: 8px; display: flex;
+  justify-content: space-between; align-items: center;
+  animation: fadeIn .3s;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.result-empty {
+  text-align: center; padding: 40px;
+  color: var(--text-dim); font-size: 13px;
+}
+.running-badge {
+  display: inline-block; padding: 3px 10px;
+  background: var(--green); color: #11111b;
+  border-radius: 20px; font-size: 11px; font-weight: 700;
+  animation: blink 1.5s infinite;
+}
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+.stopped-badge {
+  display: inline-block; padding: 3px 10px;
+  background: var(--red); color: #11111b;
+  border-radius: 20px; font-size: 11px; font-weight: 700;
+}
+
+#screen-settings {
+  position: fixed; inset: 0; background: var(--bg);
+  z-index: 200; display: none; flex-direction: column; overflow-y: auto;
+}
+#screen-settings.show { display: flex; }
+.settings-header {
+  background: var(--bg-2); padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+}
+.settings-title { font-size: 18px; font-weight: 700; }
+.settings-body { padding: 16px; max-width: 520px; margin: 0 auto; width: 100%; }
+.setting-group {
+  background: var(--card); border-radius: var(--radius);
+  margin-bottom: 14px; overflow: hidden; border: 1px solid var(--border);
+}
+.setting-item {
+  padding: 16px 18px; display: flex; align-items: center;
+  justify-content: space-between; cursor: pointer;
+  border-bottom: 1px solid var(--border); transition: background .2s;
+}
+.setting-item:last-child { border-bottom: none; }
+.setting-item:hover { background: var(--bg-3); }
+.setting-label { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 500; }
+.setting-icon { font-size: 20px; width: 24px; text-align: center; }
+.setting-arrow { color: var(--text-dim); font-size: 18px; }
+.setting-value { color: var(--text-dim); font-size: 13px; }
+.submenu { padding: 14px 18px; background: var(--bg-2); display: none; }
+.submenu.show { display: block; }
+.option-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.option-chip {
+  padding: 9px 16px; background: var(--bg-3);
+  border: 2px solid transparent; border-radius: 10px;
+  color: var(--text); font-size: 14px; cursor: pointer;
+  transition: all .2s; font-family: inherit;
+}
+.option-chip:hover { background: var(--border); }
+.option-chip.active { border-color: var(--accent); background: var(--accent); color: #11111b; font-weight: 600; }
+.color-picker-wrap {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.color-picker-wrap input[type="color"] {
+  width: 50px; height: 40px; border: none;
+  border-radius: 10px; cursor: pointer; background: none;
+}
+#history-list { max-height: 300px; overflow-y: auto; }
+.history-item {
+  padding: 12px 14px; background: var(--bg-3);
+  border-radius: 10px; margin-bottom: 8px;
+  display: flex; justify-content: space-between;
+  align-items: center; font-size: 14px; font-family: monospace;
+}
+.history-empty { text-align: center; padding: 30px; color: var(--text-dim); font-size: 14px; }
+.history-actions { display: flex; gap: 8px; margin-top: 12px; }
+.version-footer { text-align: center; padding: 20px; color: var(--text-dim); font-size: 12px; letter-spacing: 1px; }
+#toast {
+  position: fixed; bottom: 30px; left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--accent); color: #11111b;
+  padding: 12px 24px; border-radius: 30px;
+  font-weight: 600; font-size: 14px;
+  box-shadow: var(--shadow); transition: transform .3s;
+  z-index: 2000; max-width: 90%; text-align: center;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+@media (max-width: 420px) {
+  .app-name { font-size: 17px; }
+  .platform-icon { font-size: 50px; }
+  .welcome-box { padding: 24px 18px; }
+  .welcome-text { font-size: 15px; }
+  .stat-value { font-size: 18px; }
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ========== شاشة كلمة السر ========== -->
+<div id="screen-lock">
+  <div class="lock-icon" id="lock-icon">🔒</div>
+  <div class="lock-title" id="lock-title-text">يرجى كتابة كلمة السر للاستمرار باستخدام التطبيق</div>
+  <input type="password" class="lock-input" id="lock-input" placeholder="••••••••" autocomplete="off">
+  <div class="lock-actions">
+    <button class="btn btn-ghost" id="btn-exit">الخروج من التطبيق</button>
+    <button class="btn btn-primary" id="btn-submit">دخول</button>
+  </div>
+</div>
+
+<!-- ========== نافذة الترحيب ========== -->
+<div id="welcome-modal">
+  <div class="welcome-box">
+    <div class="welcome-header" id="welcome-header">رسالة ترحيب</div>
+    <div class="welcome-emoji">👋🏼</div>
+    <div class="welcome-text" id="welcome-text">أهلاً بك، شكراً لاستخدامك تطبيقنا</div>
+    <button class="welcome-btn" id="btn-welcome-ok">موافق</button>
+  </div>
+</div>
+
+<!-- ========== التطبيق الرئيسي ========== -->
+<div id="app">
+  <div class="topbar">
+    <div class="app-name">BOT Ekor</div>
+    <button class="icon-btn gear-btn" id="btn-open-settings">⚙️</button>
+  </div>
+  <div class="main-cards">
+    <div class="platform-card" id="card-tiktok">
+      <div class="platform-icon">🎵</div>
+      <div class="platform-name">يوزرات TikTok</div>
+      <div class="platform-note">(نسخه تجريبيه⚙️)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== شاشة إعداد الفحص ========== -->
+<div id="screen-scan" class="scan-screen">
+  <div class="scan-header">
+    <button class="icon-btn" id="btn-scan-back">←</button>
+    <div class="scan-title" id="scan-title">فحص يوزرات TikTok</div>
+  </div>
+  <div class="scan-body" id="scan-body"></div>
+</div>
+
+<!-- ========== شاشة المتابعة الحية ========== -->
+<div id="screen-monitor" class="scan-screen">
+  <div class="scan-header">
+    <button class="icon-btn" id="btn-monitor-back">←</button>
+    <div class="scan-title" id="monitor-title">النتائج المباشرة</div>
+    <span id="monitor-status"></span>
+  </div>
+  <div class="scan-body">
+    <div class="monitor-stats">
+      <div class="stat-box">
+        <div class="stat-value" id="stat-done">0</div>
+        <div class="stat-label">تم الفحص</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-yes" style="color:var(--green)">0</div>
+        <div class="stat-label">متاح</div>
+      </div>
+    </div>
+    <div class="eta-box" id="eta-box">⏱ جاري الحساب...</div>
+    <div class="results-title">🎯 اليوزرات المتاحة:</div>
+    <div id="results-list">
+      <div class="result-empty">لا توجد نتائج حتى الآن</div>
+    </div>
+    <button class="btn btn-danger" id="btn-stop-scan" style="margin-top:10px">⏹ إيقاف الفحص</button>
+  </div>
+</div>
+
+<!-- ========== الإعدادات ========== -->
+<div id="screen-settings">
+  <div class="settings-header">
+    <button class="icon-btn" id="btn-close-settings">←</button>
+    <div class="settings-title">⚙️ الإعدادات</div>
+  </div>
+  <div class="settings-body">
+    <div class="setting-group">
+      <div class="setting-item" data-toggle="submenu-lang">
+        <div class="setting-label"><span class="setting-icon">🌐</span><span>اللغة</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="setting-value" id="current-lang-label">العربية 🇸🇦</span>
+          <span class="setting-arrow">›</span>
+        </div>
+      </div>
+      <div class="submenu" id="submenu-lang">
+        <div class="option-grid" id="lang-options">
+          <div class="option-chip active" data-lang="ar">العربية 🇸🇦</div>
+          <div class="option-chip" data-lang="en">English 🇺🇲</div>
+          <div class="option-chip" data-lang="it">Italiano 🇮🇹</div>
+          <div class="option-chip" data-lang="fr">Français 🇨🇵</div>
+          <div class="option-chip" data-lang="ru">Русский 🇷🇺</div>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item" data-toggle="submenu-font">
+        <div class="setting-label"><span class="setting-icon">🔤</span><span>الخطوط</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="setting-value" id="current-font-label">الافتراضي</span>
+          <span class="setting-arrow">›</span>
+        </div>
+      </div>
+      <div class="submenu" id="submenu-font">
+        <div class="option-grid" id="font-options">
+          <div class="option-chip active" data-font="default">الافتراضي</div>
+          <div class="option-chip" data-font="samsung">Samsung</div>
+          <div class="option-chip" data-font="phone">Phone</div>
+          <div class="option-chip" data-font="custom">📁 ملف مخصص</div>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item" data-toggle="submenu-theme">
+        <div class="setting-label"><span class="setting-icon">🎨</span><span>ألوان التطبيق</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="setting-value" id="current-theme-label">داكن</span>
+          <span class="setting-arrow">›</span>
+        </div>
+      </div>
+      <div class="submenu" id="submenu-theme">
+        <div class="option-grid" id="theme-options">
+          <div class="option-chip active" data-theme-opt="black">⚫ داكن</div>
+          <div class="option-chip" data-theme-opt="white">⚪ فاتح</div>
+          <div class="option-chip" data-theme-opt="system">📱 النظام</div>
+          <div class="option-chip" data-theme-opt="colorblind">👁 عمى الألوان</div>
+          <div class="option-chip" data-theme-opt="custom">🎨 لون مخصص</div>
+        </div>
+        <div class="color-picker-wrap" id="custom-color-wrap" style="display:none">
+          <input type="color" id="custom-color-input" value="#89b4fa">
+          <span style="font-size:13px;color:var(--text-dim)">اختر لون التطبيق المفضل</span>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item" data-toggle="submenu-history">
+        <div class="setting-label"><span class="setting-icon">📜</span><span>سجل اليوزرات</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="setting-value" id="history-count">0</span>
+          <span class="setting-arrow">›</span>
+        </div>
+      </div>
+      <div class="submenu" id="submenu-history">
+        <div id="history-list"><div class="history-empty">لا يوجد سجل حتى الآن</div></div>
+        <div class="history-actions">
+          <button class="btn btn-danger" id="btn-clear-history">🗑 مسح السجل</button>
+        </div>
+      </div>
+    </div>
+    <div class="setting-group">
+      <div class="setting-item" id="btn-report">
+        
